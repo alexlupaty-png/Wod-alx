@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Functional Strength Program</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface2: #1e1e1e;
+    --border: #2a2a2a;
+    --accent: #e8ff00;
+    --accent2: #ff4d00;
+    --text: #f0f0f0;
+    --muted: #666;
+    --done: #00c853;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { height:100%; background:var(--bg); color:var(--text); font-family:'DM Sans', sans-serif; overflow:hidden; }
+
+  /* SPLASH */
+  #splash {
+    position:fixed; inset:0; background:var(--bg); z-index:999;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    animation: fadeOut 0.4s 1.8s forwards;
+  }
+  #splash h1 { font-family:'Bebas Neue'; font-size:56px; letter-spacing:4px; color:var(--accent); line-height:1; }
+  #splash p { font-family:'DM Mono'; font-size:11px; color:var(--muted); letter-spacing:3px; margin-top:8px; }
+  #splash .bar { width:120px; height:2px; background:var(--border); margin-top:32px; border-radius:2px; overflow:hidden; }
+  #splash .bar-fill { height:100%; background:var(--accent); animation: load 1.6s ease forwards; }
+  @keyframes load { from{width:0} to{width:100%} }
+  @keyframes fadeOut { to{opacity:0; pointer-events:none} }
+
+  /* LAYOUT */
+  #app { display:flex; flex-direction:column; height:100vh; }
+
+  /* HEADER */
+  header {
+    background:var(--surface); border-bottom:1px solid var(--border);
+    padding:12px 16px; display:flex; align-items:center; justify-content:space-between;
+    flex-shrink:0;
+  }
+  .header-left h2 { font-family:'Bebas Neue'; font-size:22px; letter-spacing:2px; color:var(--accent); }
+  .header-left p { font-size:11px; color:var(--muted); font-family:'DM Mono'; }
+  .progress-ring { position:relative; width:44px; height:44px; }
+  .progress-ring svg { transform:rotate(-90deg); }
+  .progress-ring .bg { fill:none; stroke:var(--border); stroke-width:3; }
+  .progress-ring .fg { fill:none; stroke:var(--accent); stroke-width:3; stroke-linecap:round; transition:stroke-dashoffset 0.5s; }
+  .progress-ring span { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:'DM Mono'; font-size:10px; color:var(--accent); }
+
+  /* NAV TABS */
+  nav {
+    display:flex; background:var(--surface); border-bottom:1px solid var(--border);
+    flex-shrink:0;
+  }
+  nav button {
+    flex:1; padding:10px 4px; background:none; border:none; color:var(--muted);
+    font-family:'DM Sans'; font-size:11px; font-weight:500; cursor:pointer;
+    border-bottom:2px solid transparent; transition:all 0.2s; letter-spacing:0.5px;
+  }
+  nav button.active { color:var(--accent); border-bottom-color:var(--accent); }
+
+  /* CONTENT */
+  main { flex:1; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; }
+  .page { display:none; padding:12px; }
+  .page.active { display:block; }
+
+  /* WEEK/DAY SELECTOR */
+  .selector-row { display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none; margin-bottom:12px; }
+  .selector-row::-webkit-scrollbar { display:none; }
+  .sel-btn {
+    flex-shrink:0; padding:6px 14px; border-radius:20px; border:1px solid var(--border);
+    background:var(--surface); color:var(--muted); font-size:12px; cursor:pointer;
+    font-family:'DM Mono'; transition:all 0.2s; white-space:nowrap;
+  }
+  .sel-btn.active { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
+  .sel-btn.completed { border-color:var(--done); color:var(--done); }
+
+  /* WOD CARD */
+  .wod-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    margin-bottom:10px; overflow:hidden;
+  }
+  .wod-header {
+    padding:10px 14px; display:flex; align-items:center; justify-content:space-between;
+    cursor:pointer; user-select:none;
+  }
+  .wod-header h3 { font-family:'Bebas Neue'; font-size:18px; letter-spacing:1px; }
+  .wod-header .tag {
+    font-family:'DM Mono'; font-size:9px; padding:3px 8px; border-radius:10px;
+    background:var(--border); color:var(--muted); letter-spacing:1px;
+  }
+  .wod-header .tag.strength { background:#1a2a1a; color:#4caf50; }
+  .wod-header .tag.workout { background:#2a1a0a; color:#ff9800; }
+  .wod-header .tag.accessory { background:#1a1a2a; color:#7c9eff; }
+  .wod-header .tag.cooldown { background:#2a0a1a; color:#e91e8c; }
+  .wod-body { padding:0 14px 14px; border-top:1px solid var(--border); }
+
+  /* EXERCISE LIST */
+  .exercise-item {
+    display:flex; align-items:flex-start; gap:10px; padding:10px 0;
+    border-bottom:1px solid var(--border); cursor:pointer;
+  }
+  .exercise-item:last-child { border-bottom:none; }
+  .check-box {
+    width:20px; height:20px; border-radius:6px; border:2px solid var(--border);
+    flex-shrink:0; margin-top:2px; display:flex; align-items:center; justify-content:center;
+    transition:all 0.2s;
+  }
+  .check-box.done { background:var(--done); border-color:var(--done); }
+  .check-box.done::after { content:'✓'; color:#000; font-size:11px; font-weight:700; }
+  .exercise-text { flex:1; }
+  .exercise-name { font-size:14px; font-weight:600; color:var(--text); }
+  .exercise-detail { font-size:12px; color:var(--muted); margin-top:2px; line-height:1.4; }
+  .exercise-note { font-size:11px; color:#888; font-style:italic; margin-top:4px; line-height:1.3; }
+
+  /* TIMER */
+  .timer-section { margin-top:12px; }
+  .timer-display {
+    background:var(--bg); border:1px solid var(--border); border-radius:12px;
+    padding:20px; text-align:center; margin-bottom:10px;
+  }
+  .timer-display .time {
+    font-family:'Bebas Neue'; font-size:72px; color:var(--accent); letter-spacing:4px;
+    line-height:1;
+  }
+  .timer-display .timer-label { font-family:'DM Mono'; font-size:10px; color:var(--muted); letter-spacing:2px; margin-top:4px; }
+  .timer-controls { display:flex; gap:8px; }
+  .timer-controls button {
+    flex:1; padding:12px; border-radius:10px; border:none; cursor:pointer;
+    font-family:'Bebas Neue'; font-size:18px; letter-spacing:1px; transition:all 0.15s;
+  }
+  .btn-start { background:var(--accent); color:#000; }
+  .btn-stop { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+  .btn-reset { background:var(--surface2); color:var(--muted); border:1px solid var(--border); }
+  .timer-presets { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .preset-btn {
+    padding:6px 12px; border-radius:20px; border:1px solid var(--border);
+    background:var(--surface); color:var(--muted); font-size:11px; cursor:pointer;
+    font-family:'DM Mono'; transition:all 0.15s;
+  }
+  .preset-btn:active { background:var(--accent); color:#000; border-color:var(--accent); }
+
+  /* PROGRESS PAGE */
+  .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px; }
+  .stat-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:14px; text-align:center;
+  }
+  .stat-num { font-family:'Bebas Neue'; font-size:36px; color:var(--accent); }
+  .stat-label { font-size:10px; color:var(--muted); font-family:'DM Mono'; letter-spacing:1px; }
+  .week-progress { margin-bottom:8px; }
+  .week-bar-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .week-bar-label { font-family:'DM Mono'; font-size:10px; color:var(--muted); width:50px; }
+  .week-bar-track { flex:1; height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
+  .week-bar-fill { height:100%; background:var(--accent); border-radius:3px; transition:width 0.5s; }
+  .week-bar-pct { font-family:'DM Mono'; font-size:10px; color:var(--muted); width:30px; text-align:right; }
+
+  /* 1RM PAGE */
+  .rm-grid { display:grid; gap:8px; }
+  .rm-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .rm-name { font-size:14px; font-weight:600; }
+  .rm-weight { display:flex; align-items:center; gap:8px; }
+  .rm-weight input {
+    background:var(--bg); border:1px solid var(--border); border-radius:8px;
+    color:var(--accent); font-family:'Bebas Neue'; font-size:24px; width:80px;
+    text-align:center; padding:4px; outline:none;
+  }
+  .rm-unit { font-family:'DM Mono'; font-size:11px; color:var(--muted); }
+
+  /* COLLAPSE ARROW */
+  .arrow { color:var(--muted); transition:transform 0.2s; font-size:14px; }
+  .collapsed .arrow { transform:rotate(-90deg); }
+  .wod-body { display:block; }
+  .collapsed .wod-body { display:none; }
+
+  /* BADGE */
+  .badge {
+    display:inline-block; padding:2px 8px; border-radius:10px;
+    font-family:'Bebas Neue'; font-size:13px; letter-spacing:1px;
+    background:var(--accent2); color:#fff; margin-left:6px;
+  }
+
+  /* SECTION TITLE */
+  .section-title {
+    font-family:'Bebas Neue'; font-size:13px; letter-spacing:2px; color:var(--muted);
+    margin:14px 0 8px; display:flex; align-items:center; gap:8px;
+  }
+  .section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  /* EMPTY */
+  .empty { text-align:center; padding:40px 20px; color:var(--muted); font-size:13px; }
+
+  /* TOAST */
+  #toast {
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(80px);
+    background:var(--done); color:#000; padding:10px 20px; border-radius:20px;
+    font-family:'DM Mono'; font-size:12px; z-index:1000; transition:transform 0.3s;
+    pointer-events:none;
+  }
+  #toast.show { transform:translateX(-50%) translateY(0); }
+
+  /* SCROLLBAR */
+  main::-webkit-scrollbar { width:3px; }
+  main::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+  .day-complete-banner {
+    background: linear-gradient(135deg, #0a1f0a, #1a3a1a);
+    border: 1px solid var(--done); border-radius: 12px;
+    padding: 16px; text-align: center; margin-bottom: 12px;
+  }
+  .day-complete-banner h3 { font-family:'Bebas Neue'; font-size:24px; color:var(--done); letter-spacing:2px; }
+  .day-complete-banner p { font-size:12px; color:#4caf50; margin-top:4px; }
+</style>
+</head>
+<body>
+
+<div id="splash">
+  <h1>FSP</h1>
+  <p>FUNCTIONAL STRENGTH PROGRAM</p>
+  <div class="bar"><div class="bar-fill"></div></div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="header-left">
+      <h2>ONLINEWOD</h2>
+      <p id="header-sub">SEMANA 1 — DÍA 1</p>
+    </div>
+    <div class="progress-ring">
+      <svg width="44" height="44" viewBox="0 0 44 44">
+        <circle class="bg" cx="22" cy="22" r="18"/>
+        <circle class="fg" id="progress-circle" cx="22" cy="22" r="18"
+          stroke-dasharray="113" stroke-dashoffset="113"/>
+      </svg>
+      <span id="progress-pct">0%</span>
+    </div>
+  </header>
+
+  <nav>
+    <button class="active" onclick="showPage('wod')">🏋️ WOD</button>
+    <button onclick="showPage('timer')">⏱ TIMER</button>
+    <button onclick="showPage('rm')">📊 1RMs</button>
+    <button onclick="showPage('progress')">📈 PROGRESO</button>
+  </nav>
+
+  <main>
+    <!-- WOD PAGE -->
+    <div class="page active" id="page-wod">
+      <div class="selector-row" id="week-selector"></div>
+      <div class="selector-row" id="day-selector"></div>
+      <div id="wod-content"></div>
+    </div>
+
+    <!-- TIMER PAGE -->
+    <div class="page" id="page-timer">
+      <div class="timer-section">
+        <div class="timer-display">
+          <div class="time" id="timer-display">00:00</div>
+          <div class="timer-label" id="timer-label">LISTO</div>
+        </div>
+        <div class="timer-controls">
+          <button class="btn-start" onclick="timerStart()">▶ START</button>
+          <button class="btn-stop" onclick="timerPause()">⏸ PAUSA</button>
+          <button class="btn-reset" onclick="timerReset()">↺ RESET</button>
+        </div>
+        <div class="section-title">DESCANSO RÁPIDO</div>
+        <div class="timer-presets">
+          <button class="preset-btn" onclick="setTimer(60)">1 min</button>
+          <button class="preset-btn" onclick="setTimer(90)">1:30</button>
+          <button class="preset-btn" onclick="setTimer(120)">2 min</button>
+          <button class="preset-btn" onclick="setTimer(180)">3 min</button>
+          <button class="preset-btn" onclick="setTimer(300)">5 min</button>
+        </div>
+        <div class="section-title">STOPWATCH</div>
+        <div class="timer-display" style="margin-top:0">
+          <div class="time" id="sw-display">00:00</div>
+          <div class="timer-label">CRONÓMETRO</div>
+        </div>
+        <div class="timer-controls" style="margin-top:8px">
+          <button class="btn-start" onclick="swStart()">▶ START</button>
+          <button class="btn-stop" onclick="swPause()">⏸ PAUSA</button>
+          <button class="btn-reset" onclick="swReset()">↺ RESET</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1RM PAGE -->
+    <div class="page" id="page-rm">
+      <div class="section-title">TUS 1 REP MAXES</div>
+      <div class="rm-grid" id="rm-grid"></div>
+      <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:16px;font-family:'DM Mono'">
+        Los % del programa se calculan sobre estos valores
+      </p>
+    </div>
+
+    <!-- PROGRESS PAGE -->
+    <div class="page" id="page-progress">
+      <div class="stats-grid" id="stats-grid"></div>
+      <div class="section-title">POR SEMANA</div>
+      <div id="week-bars"></div>
+    </div>
+  </main>
+</div>
+
+<div id="toast">✓ Completado</div>
+
+<script>
+// ===================== DATA =====================
+const PROGRAM = {
+  weeks: 12,
+  days: 5,
+  data: {}
+};
+
+// Build full 12-week program data
+function buildProgram() {
+  const wods = {
+    // PHASE 1: Weeks 1-4
+    "1-1": {
+      warmup: { name:"CALENTAMIENTO", tag:"warmup", exercises:[
+        {name:"Cal Bike", detail:"15/12 cal", note:"3 Rounds"},
+        {name:"Wallballs", detail:"10 reps", note:""},
+        {name:"Curtsy Lunges", detail:"5/5 reps", note:""}
+      ]},
+      strength: { name:"FUERZA", tag:"strength", exercises:[
+        {name:"Back Squat (2-sec Pause)", detail:"5 × 6 reps @ 64%", note:"Pausa 2 seg en el fondo. 2 min descanso."},
+        {name:"Back Rack Reverse Lunges", detail:"4 × 10 reps c/pierna", note:"Peso que permita ir sin parar. 2 min descanso."},
+        {name:"GHD Sit-Ups", detail:"3 × 10-15 reps", note:"Si duele la espalda, parar a paralelo. 2 min descanso."}
+      ]},
+      workout: { name:"WORKOUT", tag:"workout", exercises:[
+        {name:"4 Rounds — 4-min window", detail:"15/12 Cal Bike\n10-15 Wallballs @ 20/14lbs\n10-15 Toes to Bar\n10-15 Burpees", note:"30-45 seg descanso por ronda mínimo. Escalar reps según sea necesario."}
+      ]},
+      accessory: { name:"TRABAJO ACCESORIO", tag:"accessory", exercises:[
+        {name:"3 Rounds (For Quality)", detail:"8-12 Goblet Squats\n:30 Weighted Wall Sit\n8-12 Jump Squats", note:"Descansar entre rondas según necesidad."}
+      ]},
+      cooldown: { name:"ENFRIAMIENTO", tag:"cooldown", exercises:[
+        {name:"Pigeon Pose", detail:"2:00 c/lado"},
+        {name:"Couch Stretch", detail:"1:00 c/lado"},
+        {name:"Saddle Pose", detail:"1:00"},
+        {name:"Puppy Dog Stretch", detail:"1:00"}
+      ]}
+    },
+    "1-2": {
+      warmup: { name:"CALENTAMIENTO", tag:"warmup", exercises:[
+        {name:"Cal Ski", detail:"15/12 cal — 3 Rounds"},
+        {name:"Band Pull Aparts", detail:"10 reps"},
+        {name:"TYIs", detail:"10 reps"}
+      ]},
+      strength: { name:"FUERZA", tag:"strength", exercises:[
+        {name:"Strict Press", detail:"Build a heavy 10RM, luego 3 × 10 @ 85%", note:"2 min descanso entre series."},
+        {name:"Strict Banded Pull-Ups", detail:"3 × 15-20 reps", note:"Banda suficientemente fuerte para al menos 15 reps. Controlar la bajada."},
+        {name:"Skull Crushers", detail:"3 × 8-12 reps", note:"90 seg descanso."}
+      ]},
+      workout: { name:"WORKOUT", tag:"workout", exercises:[
+        {name:"4 Rounds", detail:"15/12 Cal Ski Erg\n10 DB Hang Power Cleans @ 2×50/35lbs\n10 DB Push Press @ 2×50/35lbs\n10 Hand Release Push-Ups", note:"2 min descanso entre rondas."}
+      ]},
+      accessory: { name:"TRABAJO ACCESORIO", tag:"accessory", exercises:[
+        {name:"3 Rounds (For Quality)", detail:"8-12 DB Hammer Curls\n8-12 DB Lateral Raises\n8-12 DB Front Raises", note:"Descansar según necesidad."}
+      ]},
+      cooldown: { name:"ENFRIAMIENTO", tag:"cooldown", exercises:[
+        {name:"Bottom of Bench Dip Stretch", detail:"1:00"},
+        {name:"Kneeling Tricep Stretch", detail:":30 c/lado"},
+        {name:"Thread the Needle", detail:"1:00 c/lado"},
+        {name:"Seal Stretch", detail:":30"}
+      ]}
+    },
+    "1-3": {
+      warmup: { name:"CALENTAMIENTO", tag:"warmup", exercises:[
+        {name:"Cal Row", detail:"15/12 cal — 3 Rounds"},
+        {name:"Russian KB Swings", detail:"10 reps"},
+        {name:"Banded Good Mornings", detail:"10 reps"}
+      ]},
+      strength: { name:"FUERZA", tag:"strength", exercises:[
+        {name:"Deadlift (2-sec Pause)", detail:"5 × 6 reps @ 68%", note:"Pausa 2 seg justo al despegar del suelo. Sin touch & go. 2 min descanso."},
+        {name:"Barbell Hip Thrusts", detail:"3 × 8-12 reps", note:"2 min descanso."},
+        {name:"Hip Extensions", detail:"3 × 15-20 reps", note:"GHD o Roman Chair. Isquios y glúteos como motor principal. 2 min descanso."}
+      ]},
+      workout: { name:"WORKOUT", tag:"workout", exercises:[
+        {name:"AMRAP 16", detail:"15/12 Cal Row\n15 DB Deadlifts @ 2×50/35lbs\n15 Box Jumps @ 24\"/20\"\n15 Burpees", note:"Cualquier variación de burpees."}
+      ]},
+      accessory: { name:"TRABAJO ACCESORIO", tag:"accessory", exercises:[
+        {name:"3 Rounds (For Quality)", detail:"8-12 Glute Bridges\n8-12 Box Jumps\n8-12 Banded Leg Curls c/pierna", note:"Descansar según necesidad."}
+      ]},
+      cooldown: { name:"ENFRIAMIENTO", tag:"cooldown", exercises:[
+        {name:"Low Dragon Stretch", detail:"1:30 c/lado"},
+        {name:"Half Saddle Stretch", detail:"1:30 c/lado"},
+        {name:"Supine Twist", detail:"1:00 c/lado"},
+        {name:"Single Leg Forward Fold", detail:"1:00 c/lado"}
+      ]}
+    },
+    "1-4": {
+      warmup: { name:"CALENTAMIENTO", tag:"warmup", exercises:[
+        {name:"Burpees", detail:"10 reps — 3 Rounds"},
+        {name:"Cossack Squats", detail:"5/5 reps"},
+        {name:"Walking Lunges", detail:"5/5 reps"}
+      ]},
+      strength: { name:"FUERZA", tag:"strength", exercises:[
+        {name:"Front Squat (2-sec Pause)", detail:"4 × 4 reps @ 69%", note:"Pausa 2 seg abajo. Mantener tensión. No rebotar. 2 min descanso."},
+        {name:"Barbell Bicep Curls", detail:"3 × 8-12 reps", note:"90 seg descanso."},
+        {name:"DB Head Pinch Hold", detail:"3 × 20-30 seg", note:"1 min descanso."}
+      ]},
+      workout: { name:"WORKOUT", tag:"workout", exercises:[
+        {name:"4 Rounds — 4-min window", detail:"50 Double Unders (o 100 singles)\n6-10 Alternating Pistol Squats\n6-10 Alt DB Snatch @ 1×50/35lbs\n8-12 Burpee Box Jump Overs @ 24\"/20\"", note:"Usar caja o rig para escalar pistols."}
+      ]},
+      accessory: { name:"TRABAJO ACCESORIO", tag:"accessory", exercises:[
+        {name:"3 Rounds (For Quality)", detail:"20 Weighted Russian Twists\n10 Knee Tucks\n20 Butterfly Sit-Ups", note:"Descansar según necesidad."}
+      ]},
+      cooldown: { name:"ENFRIAMIENTO", tag:"cooldown", exercises:[
+        {name:"Frog Stretch", detail:"1:30"},
+        {name:"Couch Stretch", detail:"1:00 c/lado"},
+        {name:"Supine Twist", detail:"1:00 c/lado"},
+        {name:"Puppy Dog Stretch", detail:"1:00"}
+      ]}
+    },
+    "1-5": {
+      warmup: { name:"CALENTAMIENTO", tag:"warmup", exercises:[
+        {name:"Double Unders", detail:"30 (o 60 singles) — 3 Rounds"},
+        {name:"Push-Ups", detail:"10 reps"},
+        {name:"Plate Halos", detail:"10 reps c/dirección"}
+      ]},
+      strength: { name:"FUERZA", tag:"strength", exercises:[
+        {name:"Bench Press (2-sec Pause)", detail:"5 × 6 reps @ 67%", note:"Pausa 2 seg abajo. 2 min descanso."},
+        {name:"Inverted Row (Supinated)", detail:"3 × 8-12 reps", note:"90 seg descanso."},
+        {name:"Single Arm Seated DB Press", detail:"3 × 8-12 reps c/brazo", note:"90 seg descanso."}
+      ]},
+      workout: { name:"WORKOUT", tag:"workout", exercises:[
+        {name:"EMOM 20", detail:"Min 1: 15/12 Cal Bike\nMin 2: 10-15 Thrusters @ 95/65lbs\nMin 3: 10-15 Pull-Ups\nMin 4: 10-15 Bar Facing Burpees", note:"Al menos 15 seg descanso por minuto. Escalar según necesidad."}
+      ]},
+      accessory: { name:"TRABAJO ACCESORIO", tag:"accessory", exercises:[
+        {name:"3 Rounds (For Quality)", detail:"8-12 DB Reverse Flys\n8-12 Narrow Push-Ups\n8-12 Triceps Banded Pushdown", note:"Descansar según necesidad."}
+      ]},
+      cooldown: { name:"ENFRIAMIENTO", tag:"cooldown", exercises:[
+        {name:"Seated Straddle Stretch", detail:"1:00"},
+        {name:"Pigeon Pose", detail:"1:30 c/lado"},
+        {name:"Seated Forward Fold", detail:"1:00"},
+        {name:"Saddle Pose", detail:"2:00"}
+      ]}
+    }
+  };
+
+  // Generate all 12 weeks with progressive loading
+  const strengthExercises = {
+    bs: { name:"Back Squat", pauses: [true,true,true,false, true,true,true,false, true,true,false,false] },
+    dl: { name:"Deadlift" },
+    bp: { name:"Bench Press" },
+    sp: { name:"Strict Press" },
+    fs: { name:"Front Squat" }
+  };
+
+  // Back squat percentages by week/day
+  const bsConfig = [
+    {sets:"5×6",pct:"64%",pause:true},{sets:"5×4",pct:"68%",pause:true},{sets:"6 varied",pct:"67-76%",pause:true},{sets:"5×6",pct:"65%",pause:false},
+    {sets:"5×4",pct:"73%",pause:false},{sets:"5×4",pct:"77%",pause:false},{sets:"6 varied",pct:"73-82%",pause:false},{sets:"5×4",pct:"68%",pause:false},
+    {sets:"6×3",pct:"75%",pause:false},{sets:"6×3",pct:"79%",pause:false},{sets:"6 varied",pct:"84-87%",pause:false},{sets:"3×3",pct:"75%",pause:false}
+  ];
+  const dlConfig = [
+    {sets:"5×6",pct:"68%"},{sets:"5×6",pct:"71%"},{sets:"4 varied",pct:"70-75%"},{sets:"5×4",pct:"64%"},
+    {sets:"5×4",pct:"73%"},{sets:"6 varied",pct:"73-80%"},{sets:"5 varied",pct:"82-87%"},{sets:"4×3",pct:"70%"},
+    {sets:"4 varied",pct:"81-86%"},{sets:"4 varied",pct:"84-87%"},{sets:"4×1",pct:"90%"},{sets:"3×3",pct:"70%"}
+  ];
+  const bpConfig = [
+    {sets:"5×6",pct:"67%"},{sets:"5×6",pct:"70%"},{sets:"6 varied",pct:"65-75%"},{sets:"5×6",pct:"65%"},
+    {sets:"5 varied",pct:"72-77%"},{sets:"5×5",pct:"69%"},{sets:"6 varied",pct:"75-82%"},{sets:"5×3",pct:"65%"},
+    {sets:"6 varied",pct:"73-82%"},{sets:"4×2",pct:"84%"},{sets:"5 varied",pct:"82-90%"},{sets:"5×3",pct:"75%"}
+  ];
+  const spConfig = [
+    {sets:"Build + 3×10",pct:"85% 10RM"},{sets:"4×10",pct:"87% 10RM"},{sets:"4×10",pct:"90% 10RM"},{sets:"4×10",pct:"85% 10RM"},
+    {sets:"Build + 4×8",pct:"85% 8RM"},{sets:"5×8",pct:"87% 8RM"},{sets:"5×8",pct:"90% 8RM"},{sets:"4×8",pct:"85% 8RM"},
+    {sets:"Build + 5×6",pct:"85% 6RM"},{sets:"6×6",pct:"87% 6RM"},{sets:"6×6",pct:"90% 6RM"},{sets:"4×6",pct:"85% 6RM"}
+  ];
+  const fsConfig = [
+    {sets:"4×4",pct:"69%"},{sets:"4×3",pct:"72%"},{sets:"5×4",pct:"72%"},{sets:"5×3",pct:"65%"},
+    {sets:"4×3",pct:"74%"},{sets:"5 varied",pct:"73-82%"},{sets:"4×4",pct:"75%"},{sets:"5×3",pct:"65%"},
+    {sets:"4×3",pct:"75%"},{sets:"4×3",pct:"79%"},{sets:"5 varied",pct:"84-91%"},{sets:"3×3",pct:"70%"}
+  ];
+
+  for (let w = 1; w <= 12; w++) {
+    for (let d = 1; d <= 5; d++) {
+      const key = `${w}-${d}`;
+      if (wods[key]) {
+        PROGRAM.data[key] = wods[key];
+        continue;
+      }
+      // Generate remaining weeks based on patterns
+      const wi = w - 1;
+      let sections = {};
+      if (d === 1) {
+        const cfg = bsConfig[wi];
+        sections = {
+          warmup: { name:"CALENTAMIENTO", tag:"warmup", exercises:[
+            {name:"Cal Bike", detail:`15/12 cal — 3 Rounds`},
+            {name:w%2===0?"Kang Squats":"Wallballs", detail:"10 reps"},
+            {name:w%2===0?"Cossack Squats 5/5":"Curtsy Lunges 5/5", detail:""}
+          ]},
+          strength: { name:"FUERZA", tag:"strength", exercises:[
+            {name:`Back Squat${cfg.pause?" (2-sec Pause)":""}`, detail:`${cfg.sets} @ ${cfg.pct}`, note:"2 min descanso entre series."},
+            {name:w>=9?"Rear Foot Elevated Split Squat":"Back Rack Reverse Lunges", detail:w>=9?"4×10 c/pierna":"4×8-10 reps c/pierna", note:"Peso controlado. 2 min descanso."},
+            {name:"GHD Sit-Ups", detail:w>=9?"3×20-25 reps":w>=5?"3×15-20 reps":"3×10-15 reps", note:"2 min descanso."}
+          ]},
+          workout: { name:"WORKOUT", tag:"workout", exercises:[
+            {name:w>=9?"5 Rounds":"4 Rounds", detail:`${w>=9?15:15}/12 Cal Bike\n15 Wallballs @ 20/14lbs\n${w%2===0?"15 Sandbag Cleans @ 100/70lbs":"15 Toes to Bar"}\n${w%2===0?"15 Burpees Over Sandbag":"15 Burpees"}`, note:w>=9?"Escalar reps según necesidad.":"2 min descanso entre rondas."}
+          ]},
+          accessory: { name:"TRABAJO ACCESORIO", tag:"accessory", exercises:[
+            {name:`${w>=7?"4":"3"} Rounds (For Quality)`, detail:w%2===0?"1:00 Weighted Wall Sit\n10-15 Jump Squats To Target\n10-15 1½ Air Squats":"8-12 Goblet Squats\n:30 Weighted Wall Sit\n8-12 Jump Squats", note:"Descansar según necesidad."}
+          ]},
+          cooldown: { name:"ENFRIAMIENTO", tag:"cooldown", exercises:[
+            {name:w%2===0?"Half Front Split Pose":"Pigeon Pose", detail:w%2===0?"1:00 c/lado":"2:00 c/lado"},
+            {name:w%2===0?"Child's Pose":"Couch Stretch", detail:w%2===0?"2:00":"1:00 c/lado"},
+            {name:w%2===0?"Standing Straddle":"Saddle Pose", detail:w%2===0?"2:00":"1:00"},
+            {name:"Saddle Pose/Puppy Dog", detail:"1:00"}
+          ]}
+        };
+      } else if (d === 2) {
+        const cfg = spConfig[wi];
+        sections = {
+          warmup: { name:"CALENTAMIENTO", tag:"warmup", exercises:[
+            {name:"Cal Ski", detail:"15/12 cal — 3 Rounds"},
+            {name:"Band Pull Aparts", detail:"10 reps"},
+            {name:w%2===0?"Scapular Pull-Ups":"TYIs", detail:"10 reps"}
+          ]},
+          strength: { name:"FUERZA", tag:"strength", exercises:[
+            {name:"Strict Press", detail:`${cfg.sets} @ ${cfg.pct}`, note:"Al menos 2 min descanso."},
+            {name:w>=5?"Strict Banded Chest to Bar Pull-Ups":"Strict Banded Pull-Ups", detail:`${w>=7?"4-5":"3-4"}×10-15 reps`, note:"Control en la bajada. 2 min descanso."},
+            {name:w%2===0?"Single Arm DB Tricep Extension":"Skull Crushers", detail:`${w>=7?"4-5":"3"}×8-12 reps`, note:"90 seg descanso."}
+          ]},
+          workout: { name:"WORKOUT", tag:"workout", exercises:[
+            {name:w%2===0?"5 Rounds (2min ON / 1min OFF)":"4 Rounds", detail:`12-15 Cal Ski\n10-15 Shoulder to Overhead @ 95/65lbs\n10-15 Ring Rows\n3-5 Wall Walks`, note:""}
+          ]},
+          accessory: { name:"TRABAJO ACCESORIO", tag:"accessory", exercises:[
+            {name:`${w>=7?"4":"3"} Rounds (For Quality)`, detail:"8-12 DB Upright Row c/brazo\n8-12 Narrow Push-Ups\nMax Handstand Wall Hold", note:"Descansar según necesidad."}
+          ]},
+          cooldown: { name:"ENFRIAMIENTO", tag:"cooldown", exercises:[
+            {name:w%2===0?"Half Saddle Stretch":"Bottom of Bench Dip Stretch", detail:"1:00 c/lado"},
+            {name:"Thread the Needle", detail:"1:00 c/lado"},
+            {name:"Pigeon Pose/Child's Pose", detail:"1:00 c/lado"},
+            {name:"Child's Pose/Seal Stretch", detail:"1:00"}
+          ]}
+        };
+      } else if (d === 3) {
+        const cfg = dlConfig[wi];
+        sections = {
+          warmup: { name:"CALENTAMIENTO", tag:"warmup", exercises:[
+            {name:"Cal Row", detail:"15/12 cal — 3 Rounds"},
+            {name:w%2===0?"Box Step Ups 5/5":"Russian KB Swings", detail:"10 reps"},
+            {name:w%2===0?"Banded Glute Bridges":"Banded Good Mornings", detail:"10 reps"}
+          ]},
+          strength: { name:"FUERZA", tag:"strength", exercises:[
+            {name:"Deadlift", detail:`${cfg.sets} @ ${cfg.pct}`, note:"Sin touch & go. Reset en cada rep. 2 min descanso."},
+            {name:w%2===0?"Barbell Good Mornings":"Barbell Hip Thrusts", detail:`${w>=7?"4":"3"}×8-12 reps`, note:"2 min descanso."},
+            {name:"Hip Extensions", detail:`${w>=7?"4":"3"}×10-15 reps`, note:`${w>=5?"Pausa 2-3 seg arriba. ":""}2 min descanso.`}
+          ]},
+          workout: { name:"WORKOUT", tag:"workout", exercises:[
+            {name:w>=9?"AMRAP 20":w>=7?"4 Rounds (4-min window)":"AMRAP/4 Rounds 16 min", detail:`15/12 Cal Row\n${w>=5?"8-10 Strict HSPU":"15 DB Deadlifts @ 2×50/35lbs"}\n${w%2===0?"15 Box Jumps":"8/8 Weighted Step-Ups"}\n15 Burpees/Goblet Squats`, note:"Escalar según nivel."}
+          ]},
+          accessory: { name:"TRABAJO ACCESORIO", tag:"accessory", exercises:[
+            {name:`${w>=7?"4":"3"} Rounds (For Quality)`, detail:"8-12 Dual DB Deadlift\n5-10 Single Leg Glute Bridges c/pierna\n15-20 Banded Good Mornings", note:"Descansar según necesidad."}
+          ]},
+          cooldown: { name:"ENFRIAMIENTO", tag:"cooldown", exercises:[
+            {name:"Low Dragon Stretch", detail:"1:30 c/lado"},
+            {name:w%2===0?"Seated Spinal Twist":"Half Saddle Stretch", detail:"1:00-1:30 c/lado"},
+            {name:"Child's Pose", detail:"1:30"},
+            {name:"Saddle Pose", detail:"1:00"}
+          ]}
+        };
+      } else if (d === 4) {
+        const cfg = fsConfig[wi];
+        sections = {
+          warmup: { name:"CALENTAMIENTO", tag:"warmup", exercises:[
+            {name:"Burpees", detail:"10 reps — 3 Rounds"},
+            {name:w%2===0?"Reverse Lunges 10/10":"Cossack Squats 5/5", detail:""},
+            {name:w%2===0?"Banded Bent Over Rows":"Walking Lunges 5/5", detail:"10 reps"}
+          ]},
+          strength: { name:"FUERZA", tag:"strength", exercises:[
+            {name:`Front Squat${w<=4||w===8||w===12?"":w%2!==0?" (2-sec Pause)":""}`, detail:`${cfg.sets} @ ${cfg.pct}`, note:"2 min descanso."},
+            {name:w>=9?"Dual DB Bicep Curls":w>=5?"Alt DB Bicep Curls":"Barbell Bicep Curls", detail:`${w>=9?"4-5":"3-4"}×8-12 reps`, note:"90 seg descanso."},
+            {name:w>=9?"Farmer's Carry Walk":"DB Head Pinch Hold", detail:w>=9?"4-6×50ft (15m)":"3-4×20-30 seg", note:w>=9?"Desafiar el agarre.":"1 min descanso."}
+          ]},
+          workout: { name:"WORKOUT", tag:"workout", exercises:[
+            {name:w>=9?"5 Rounds":"4 Rounds", detail:`${w>=5?"50 DU / 100 singles\n12 Alternating Pistol Squats\n12 Alt DB Snatch @ 1×50/35lbs\n12 Burpee Box Jump Overs":"21 Wallballs @ 20/14lbs\n18 Toes to Bar\n15 Burpees\n12 Hand Release Push-Ups"}`, note:"Escalar según necesidad."}
+          ]},
+          accessory: { name:"TRABAJO ACCESORIO", tag:"accessory", exercises:[
+            {name:`${w>=7?"4":"3"} Rounds (For Quality)`, detail:"20 Alt Leg V-Ups\n10 Seated Leg Lifts Over Object\n1:00 High Plank Hold", note:"Descansar según necesidad."}
+          ]},
+          cooldown: { name:"ENFRIAMIENTO", tag:"cooldown", exercises:[
+            {name:w%2===0?"Thread the Needle":"Frog Stretch", detail:"1:00-1:30 c/lado"},
+            {name:"Couch Stretch", detail:"1:00 c/lado"},
+            {name:"Supine Twist", detail:"1:00 c/lado"},
+            {name:"Puppy Dog Stretch", detail:"1:00"}
+          ]}
+        };
+      } else if (d === 5) {
+        const cfg = bpConfig[wi];
+        sections = {
+          warmup: { name:"CALENTAMIENTO", tag:"warmup", exercises:[
+            {name:"Double Unders", detail:"30 (o 60 singles) — 3 Rounds"},
+            {name:w%2===0?"Scapular Push-Ups":"Push-Ups", detail:"10 reps"},
+            {name:"TYIs / Plate Halos", detail:"10 reps"}
+          ]},
+          strength: { name:"FUERZA", tag:"strength", exercises:[
+            {name:"Bench Press", detail:`${cfg.sets} @ ${cfg.pct}`, note:"2 min descanso."},
+            {name:w>=9?"Barbell Bent Over Row":w%2===0?"Seated Dual DB Z-Press":"Inverted Row", detail:`${w>=7?"4-5":"3-4"}×8-12 reps`, note:"90 seg descanso."},
+            {name:w%2===0?"Seated Dual DB Z-Press":"Single Arm Seated DB Press", detail:`${w>=7?"4-5":"3-4"}×8-12 reps`, note:"90 seg descanso."}
+          ]},
+          workout: { name:"WORKOUT", tag:"workout", exercises:[
+            {name:w%2===0?"AMRAP 8 + rest 5min + AMRAP 8":"AMRAP/EMOM 16-20", detail:`15/12 Cal Ski\n10 DB Hang Power Cleans @ 2×50/35lbs\n10 DB Push Press @ 2×50/35lbs\n${w>=9?"5 Wall Walks":"10 Burpees"}`, note:"Escalar según nivel."}
+          ]},
+          accessory: { name:"TRABAJO ACCESORIO", tag:"accessory", exercises:[
+            {name:`${w>=7?"4":"3"} Rounds (For Quality)`, detail:"8-12 DB Reverse Flys\n8-12 Narrow Push-Ups\n8-12 Triceps Banded Pushdown", note:"Descansar según necesidad."}
+          ]},
+          cooldown: { name:"ENFRIAMIENTO", tag:"cooldown", exercises:[
+            {name:w%2===0?"Low Dragon Stretch":"Seated Straddle Stretch", detail:"1:00-1:30 c/lado"},
+            {name:w%2===0?"Frog Stretch":"Pigeon Pose", detail:"1:00-1:30"},
+            {name:"Puppy Dog Stretch", detail:"1:00"},
+            {name:w%2===0?"Happy Baby Pose":"Saddle Pose", detail:"1:00-2:00"}
+          ]}
+        };
+      }
+      PROGRAM.data[key] = sections;
+    }
+  }
+}
+
+// ===================== STATE =====================
+let state = {
+  currentWeek: 1,
+  currentDay: 1,
+  completed: JSON.parse(localStorage.getItem('fsp_completed') || '{}'),
+  rms: JSON.parse(localStorage.getItem('fsp_rms') || '{}'),
+  collapsed: {}
+};
+
+function saveState() {
+  localStorage.setItem('fsp_completed', JSON.stringify(state.completed));
+  localStorage.setItem('fsp_rms', JSON.stringify(state.rms));
+}
+
+function getKey(w,d,sec,idx) { return `${w}-${d}-${sec}-${idx}`; }
+function getDayKey(w,d) { return `${w}-${d}`; }
+
+// ===================== RENDER =====================
+function renderWeekSelector() {
+  const el = document.getElementById('week-selector');
+  el.innerHTML = '';
+  for (let w = 1; w <= 12; w++) {
+    const btn = document.createElement('button');
+    btn.className = 'sel-btn' + (w === state.currentWeek ? ' active' : '');
+    const done = isDayFullyDone(w, null);
+    btn.textContent = `S${w}`;
+    btn.onclick = () => { state.currentWeek = w; state.currentDay = 1; renderAll(); };
+    el.appendChild(btn);
+  }
+}
+
+function renderDaySelector() {
+  const el = document.getElementById('day-selector');
+  el.innerHTML = '';
+  const dayNames = ['Lun','Mar','Mié','Vie','Sáb'];
+  for (let d = 1; d <= 5; d++) {
+    const btn = document.createElement('button');
+    const allDone = isDayFullyDone(state.currentWeek, d);
+    btn.className = 'sel-btn' + (d === state.currentDay ? ' active' : '') + (allDone && d !== state.currentDay ? ' completed' : '');
+    btn.textContent = dayNames[d-1];
+    btn.onclick = () => { state.currentDay = d; renderWOD(); renderDaySelector(); updateHeader(); };
+    el.appendChild(btn);
+  }
+}
+
+function isDayFullyDone(w, d) {
+  if (!d) return false;
+  const wod = PROGRAM.data[`${w}-${d}`];
+  if (!wod) return false;
+  let total = 0, done = 0;
+  Object.keys(wod).forEach(sec => {
+    wod[sec].exercises.forEach((ex, i) => {
+      total++;
+      if (state.completed[getKey(w,d,sec,i)]) done++;
+    });
+  });
+  return total > 0 && done === total;
+}
+
+function getDayProgress(w, d) {
+  const wod = PROGRAM.data[`${w}-${d}`];
+  if (!wod) return { total:0, done:0 };
+  let total = 0, done = 0;
+  Object.keys(wod).forEach(sec => {
+    wod[sec].exercises.forEach((ex, i) => {
+      total++;
+      if (state.completed[getKey(w,d,sec,i)]) done++;
+    });
+  });
+  return { total, done };
+}
+
+function renderWOD() {
+  const w = state.currentWeek, d = state.currentDay;
+  const wod = PROGRAM.data[`${w}-${d}`];
+  const container = document.getElementById('wod-content');
+  if (!wod) { container.innerHTML = '<div class="empty">Sin datos para este día.</div>'; return; }
+
+  const { total, done } = getDayProgress(w, d);
+  let html = '';
+
+  if (done === total && total > 0) {
+    html += `<div class="day-complete-banner"><h3>🏆 DÍA COMPLETADO</h3><p>${done}/${total} ejercicios · ¡Excelente trabajo!</p></div>`;
+  }
+
+  const order = ['warmup','strength','workout','accessory','cooldown'];
+  order.forEach(sec => {
+    if (!wod[sec]) return;
+    const section = wod[sec];
+    const colKey = `${w}-${d}-${sec}`;
+    const collapsed = state.collapsed[colKey];
+    const tagLabels = {warmup:'CALENT.',strength:'FUERZA',workout:'WORKOUT',accessory:'ACCESORIO',cooldown:'ENFRÍA'};
+
+    html += `<div class="wod-card ${collapsed?'collapsed':''}" id="card-${colKey}">`;
+    html += `<div class="wod-header" onclick="toggleSection('${colKey}')">`;
+    html += `<h3>${section.name}</h3>`;
+    html += `<div style="display:flex;align-items:center;gap:8px">`;
+    html += `<span class="tag ${sec}">${tagLabels[sec]||sec.toUpperCase()}</span>`;
+    html += `<span class="arrow">▾</span>`;
+    html += `</div></div>`;
+    html += `<div class="wod-body">`;
+
+    section.exercises.forEach((ex, i) => {
+      const k = getKey(w,d,sec,i);
+      const isDone = !!state.completed[k];
+      html += `<div class="exercise-item" onclick="toggleExercise('${k}','${w}','${d}')">`;
+      html += `<div class="check-box ${isDone?'done':''}"></div>`;
+      html += `<div class="exercise-text">`;
+      html += `<div class="exercise-name" style="${isDone?'text-decoration:line-through;color:var(--muted)':''}">${ex.name}</div>`;
+      if (ex.detail) html += `<div class="exercise-detail">${ex.detail.replace(/\n/g,'<br>')}</div>`;
+      if (ex.note) html += `<div class="exercise-note">${ex.note}</div>`;
+      html += `</div></div>`;
+    });
+
+    html += `</div></div>`;
+  });
+
+  container.innerHTML = html;
+  updateProgressRing();
+}
+
+function toggleSection(key) {
+  state.collapsed[key] = !state.collapsed[key];
+  const card = document.getElementById(`card-${key}`);
+  if (card) card.classList.toggle('collapsed');
+}
+
+function toggleExercise(k, w, d) {
+  state.completed[k] = !state.completed[k];
+  saveState();
+  renderWOD();
+  renderDaySelector();
+  showToast(state.completed[k] ? '✓ Marcado' : '○ Desmarcado', state.completed[k]);
+}
+
+function updateHeader() {
+  const dayNames = ['Lunes','Martes','Miércoles','Viernes','Sábado'];
+  document.getElementById('header-sub').textContent = `SEMANA ${state.currentWeek} — ${dayNames[state.currentDay-1]||'DÍA '+state.currentDay}`;
+}
+
+function updateProgressRing() {
+  const w = state.currentWeek, d = state.currentDay;
+  const { total, done } = getDayProgress(w, d);
+  const pct = total > 0 ? Math.round((done/total)*100) : 0;
+  const r = 18, circ = 2*Math.PI*r;
+  const offset = circ - (pct/100)*circ;
+  document.getElementById('progress-circle').style.strokeDashoffset = offset;
+  document.getElementById('progress-pct').textContent = pct+'%';
+}
+
+// ===================== 1RM PAGE =====================
+const RM_LIST = ['Back Squat','Deadlift','Bench Press','Strict Press','Front Squat','Snatch (Opt.)','Clean (Opt.)'];
+
+function renderRM() {
+  const el = document.getElementById('rm-grid');
+  el.innerHTML = '';
+  RM_LIST.forEach(name => {
+    const key = name.replace(/\s/g,'_');
+    const val = state.rms[key] || '';
+    el.innerHTML += `
+      <div class="rm-card">
+        <div class="rm-name">${name}</div>
+        <div class="rm-weight">
+          <input type="number" inputmode="numeric" value="${val}" placeholder="0"
+            onchange="saveRM('${key}', this.value)" style="width:70px">
+          <span class="rm-unit">kg</span>
+        </div>
+      </div>`;
+  });
+}
+
+function saveRM(key, val) {
+  state.rms[key] = val;
+  saveState();
+  showToast('💾 Guardado', true);
+}
+
+// ===================== PROGRESS PAGE =====================
+function renderProgress() {
+  let totalDone = 0, totalDays = 0;
+  let weekData = [];
+
+  for (let w = 1; w <= 12; w++) {
+    let wDone = 0, wTotal = 0;
+    for (let d = 1; d <= 5; d++) {
+      const p = getDayProgress(w, d);
+      if (p.total > 0) {
+        totalDays++;
+        if (p.done === p.total) totalDone++;
+        wDone += p.done; wTotal += p.total;
+      }
+    }
+    weekData.push({ done:wDone, total:wTotal });
+  }
+
+  // Count completed exercises
+  const completedCount = Object.values(state.completed).filter(Boolean).length;
+  const weeksDone = weekData.filter(w => w.done === w.total && w.total > 0).length;
+
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${totalDone}</div><div class="stat-label">DÍAS LISTOS</div></div>
+    <div class="stat-card"><div class="stat-num">${60-totalDone}</div><div class="stat-label">DÍAS RESTANTES</div></div>
+    <div class="stat-card"><div class="stat-num">${completedCount}</div><div class="stat-label">EJERCICIOS ✓</div></div>
+    <div class="stat-card"><div class="stat-num">${weeksDone}</div><div class="stat-label">SEMANAS 100%</div></div>
+  `;
+
+  let barsHtml = '';
+  weekData.forEach((w, i) => {
+    const pct = w.total > 0 ? Math.round((w.done/w.total)*100) : 0;
+    barsHtml += `
+      <div class="week-bar-row">
+        <span class="week-bar-label">SEM ${i+1}</span>
+        <div class="week-bar-track"><div class="week-bar-fill" style="width:${pct}%"></div></div>
+        <span class="week-bar-pct">${pct}%</span>
+      </div>`;
+  });
+  document.getElementById('week-bars').innerHTML = barsHtml;
+}
+
+// ===================== TIMER =====================
+let timerInterval = null, timerSecs = 120, timerRunning = false;
+let swInterval = null, swSecs = 0, swRunning = false;
+
+function fmtTime(s) {
+  const m = Math.floor(s/60); const sec = s%60;
+  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+function setTimer(s) { timerSecs = s; timerRunning = false; clearInterval(timerInterval); document.getElementById('timer-display').textContent = fmtTime(s); document.getElementById('timer-label').textContent = 'LISTO'; }
+function timerStart() {
+  if (timerRunning) return;
+  timerRunning = true;
+  document.getElementById('timer-label').textContent = 'CORRIENDO...';
+  timerInterval = setInterval(() => {
+    if (timerSecs <= 0) { clearInterval(timerInterval); timerRunning=false; document.getElementById('timer-label').textContent = '⏰ TIEMPO!'; return; }
+    timerSecs--;
+    document.getElementById('timer-display').textContent = fmtTime(timerSecs);
+  }, 1000);
+}
+function timerPause() { clearInterval(timerInterval); timerRunning=false; document.getElementById('timer-label').textContent = 'PAUSADO'; }
+function timerReset() { clearInterval(timerInterval); timerRunning=false; timerSecs=120; document.getElementById('timer-display').textContent = fmtTime(timerSecs); document.getElementById('timer-label').textContent = 'LISTO'; }
+
+function swStart() {
+  if (swRunning) return; swRunning=true;
+  swInterval = setInterval(() => { swSecs++; document.getElementById('sw-display').textContent = fmtTime(swSecs); }, 1000);
+}
+function swPause() { clearInterval(swInterval); swRunning=false; }
+function swReset() { clearInterval(swInterval); swRunning=false; swSecs=0; document.getElementById('sw-display').textContent = '00:00'; }
+
+// ===================== TOAST =====================
+let toastTimer;
+function showToast(msg, positive) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = positive ? 'var(--done)' : 'var(--accent2)';
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1500);
+}
+
+// ===================== NAV =====================
+function showPage(p) {
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
+  document.getElementById(`page-${p}`).classList.add('active');
+  event.target.classList.add('active');
+  if (p === 'rm') renderRM();
+  if (p === 'progress') renderProgress();
+}
+
+function renderAll() {
+  renderWeekSelector();
+  renderDaySelector();
+  renderWOD();
+  updateHeader();
+}
+
+// ===================== INIT =====================
+buildProgram();
+renderAll();
+</script>
+</body>
+</html>
